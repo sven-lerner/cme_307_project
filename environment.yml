@@ -1,0 +1,11 @@
+name: cme_307 
+dependencies:
+  - ipython
+  - numpy
+  - jupyter
+  - pandas
+  - matplotlib
+  - cvxopt
+  - pip
+  - pip:
+    - cvxpy
