@@ -4,9 +4,18 @@ import numpy as np
 from src.util.typevars import MDPActions, MDPTransitions, MDPRewards, A, S
 from src.value_iteration.core import extract_value_of_action, check_value_fuction_equivalence, get_influence_tree
 
+def record_convergence(record, max_diffs, gt_vf, new_vf):
+    if record:
+        max_diffs.append(max(abs(gt_vf[state] - new_vf[state]) for state in gt_vf))
+        return max_diffs
+    else:
+        return max_diffs
+
 
 def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: MDPRewards,
-                    discount: float, vi_method: str = 'normal', k=None) -> Tuple[Mapping[S, float], int]:
+                    discount: float, vi_method: str = 'normal', k=None,
+                    log_converence=False, gt_vf=None) -> Tuple[Mapping[S, float], int, list]:
+    max_diffs = []
     next_value_function = {s: 0 for s in actions.keys()}
     base_value_function = None
 
@@ -18,6 +27,7 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
             base_value_function = next_value_function
             next_value_function = iterate_on_value_function(actions, transitions, rewards, base_value_function,
                                                             discount)
+            max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
     elif vi_method == 'random-k':
         while base_value_function is None or \
                 not check_value_fuction_equivalence(base_value_function, next_value_function):
@@ -26,6 +36,9 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
 
             next_value_function = random_k_iterate_on_value_function(actions, transitions, rewards, base_value_function,
                                                                      discount, k)
+            max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
+            if log_converence:
+                base_value_function = gt_vf
     elif vi_method == 'influence-tree':
         influence_tree = get_influence_tree(transitions)
         next_states_to_update = set(actions.keys())
@@ -37,6 +50,7 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
                                                                                             base_value_function,
                                                                                             discount,
                                                                                             next_states_to_update)
+            max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
             next_states_to_update = set()
             for state in updated_states:
                 next_states_to_update.update(influence_tree[state])
@@ -48,6 +62,7 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
             next_value_function = cycle_iterate_on_value_function(actions, transitions, rewards,
                                                                   base_value_function,
                                                                   discount)
+            max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
     elif vi_method == 'cyclic-vi-rp':
         while base_value_function is None or \
                 not check_value_fuction_equivalence(base_value_function, next_value_function):
@@ -56,9 +71,10 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
             next_value_function = cycle_iterate_on_value_function_rp(actions, transitions, rewards,
                                                                      base_value_function,
                                                                      discount)
+            max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
     else:
         raise NotImplemented(f'have not implemented {vi_method} value iteration yet')
-    return base_value_function, num_iter
+    return base_value_function, num_iter, max_diffs
 
 def iterate_on_value_function(actions: MDPActions, transitions: MDPTransitions, rewards: MDPRewards,
                               base_vf: Mapping[S, float], discount: float) -> Mapping[S, float]:
@@ -127,4 +143,3 @@ def iterate_on_value_function_specific_states(actions: MDPActions, transitions: 
     for s in set(actions.keys()) - set(states_to_update):
         new_vf[s] = base_vf[s]
     return new_vf, updated_states
-

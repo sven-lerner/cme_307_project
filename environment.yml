@@ -1,6 +1,7 @@
 name: cme_307 
 dependencies:
   - ipython
+  - tqdm
   - numpy
   - jupyter
   - pandas

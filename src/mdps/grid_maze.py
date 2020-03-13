@@ -5,7 +5,7 @@ class RandomGridMaze:
 
     def __init__(self, x_dim, y_dim, num_terminal, seed=None, deterministic=True):
         self.state_actions, self.state_transitions, self.state_rewards, self.terminal_states = \
-            self._get_maze(x_dim, y_dim, num_terminal, seed=None, deterministic=True)
+            self._get_maze(x_dim, y_dim, num_terminal, seed=seed, deterministic=deterministic)
 
     def get_mdp(self):
         return self.state_actions, self.state_transitions, self.state_rewards, self.terminal_states
