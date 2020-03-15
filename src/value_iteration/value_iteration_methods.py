@@ -1,4 +1,4 @@
-from typing import Set,  Mapping, Tuple
+from typing import Set, Mapping, Tuple
 import numpy as np
 
 from src.util.typevars import MDPActions, MDPTransitions, MDPRewards, A, S
@@ -15,30 +15,36 @@ def record_convergence(record, max_diffs, gt_vf, new_vf):
 
 def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: MDPRewards,
                     discount: float, vi_method: str = 'normal', k=None,
-                    log_converence=False, gt_vf=None) -> Tuple[Mapping[S, float], int, list, list]:
+                    log_converence=False, gt_vf=None,
+                    max_iter=1e4, tolerance=1e-4) -> Tuple[Mapping[S, float], int, list, list]:
     max_diffs = []
     updates_per_iter = []
     next_value_function = {s: 0 for s in actions.keys()}
     base_value_function = None
-
     num_iter = 0
+
     if vi_method == 'normal':
         while base_value_function is None or \
-                not check_value_fuction_equivalence(base_value_function, next_value_function):
+                not check_value_fuction_equivalence(base_value_function, next_value_function,
+                                                    tolerance):
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updates = iterate_on_value_function(actions, transitions, rewards, base_value_function,
-                                                            discount)
+                                                                     discount)
             max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
             updates_per_iter.append(updates)
     elif vi_method == 'random-k':
-        while base_value_function is None or \
-                0 < len(max_diffs) < 1e3 and max_diffs[-1] > 1e-4:
+        while num_iter < max_iter and (base_value_function is None or log_converence and max_diffs[-1] > tolerance
+                                       or (not log_converence and
+                                           not check_value_fuction_equivalence(base_value_function,
+                                                                               next_value_function,
+                                                                               tolerance))):
             num_iter += 1
             base_value_function = next_value_function
 
-            next_value_function, updates = random_k_iterate_on_value_function(actions, transitions, rewards, base_value_function,
-                                                                     discount, k)
+            next_value_function, updates = random_k_iterate_on_value_function(actions, transitions, rewards,
+                                                                              base_value_function,
+                                                                              discount, k)
             max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
             updates_per_iter.append(updates)
 
@@ -50,8 +56,7 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
             next_sample_size = min(len(next_states_to_update), k)
             states_to_update_idx = np.random.choice(range(len(next_states_to_update)), size=next_sample_size)
             next_states_to_update = [next_states_to_update[idx] for idx in states_to_update_idx]
-        while len(next_states_to_update) > 0 or \
-                0 < len(max_diffs) < 1e3 and max_diffs[-1] > 1e-4:
+        while num_iter < max_iter and len(next_states_to_update) > 0:
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updated_states = iterate_on_value_function_specific_states(actions, transitions,
@@ -67,34 +72,34 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
             for state in updated_states:
                 next_states_to_update.update(influence_tree[state])
             if k is not None:
-                if k > 0:
-                    next_states_to_update = list(next_states_to_update)
-                    next_sample_size = min(len(next_states_to_update), k)
-                    states_to_update_idx = np.random.choice(range(len(next_states_to_update)), size=next_sample_size)
-                    next_states_to_update = [next_states_to_update[idx] for idx in states_to_update_idx]
+                if len(next_states_to_update) == 0 and log_converence and max_diffs[-1] > tolerance:
+                    next_states_to_update = list(actions.keys())
                 else:
                     next_states_to_update = list(next_states_to_update)
-                    next_sample_size = min(len(next_states_to_update), k)
-                    states_to_update_idx = np.random.choice(range(len(next_states_to_update)), size=next_sample_size)
-                    next_states_to_update = [next_states_to_update[idx] for idx in states_to_update_idx]
+                next_sample_size = min(len(next_states_to_update), k)
+                states_to_update_idx = np.random.choice(range(len(next_states_to_update)), size=next_sample_size)
+                next_states_to_update = [next_states_to_update[idx] for idx in states_to_update_idx]
+
     elif vi_method == 'cyclic-vi':
         while base_value_function is None or \
-                not check_value_fuction_equivalence(base_value_function, next_value_function):
+                not check_value_fuction_equivalence(base_value_function, next_value_function,
+                                                    tolerance):
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updates = cycle_iterate_on_value_function(actions, transitions, rewards,
-                                                                  base_value_function,
-                                                                  discount)
+                                                                           base_value_function,
+                                                                           discount)
             max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
             updates_per_iter.append(updates)
     elif vi_method == 'cyclic-vi-rp':
         while base_value_function is None or \
-                not check_value_fuction_equivalence(base_value_function, next_value_function):
+                not check_value_fuction_equivalence(base_value_function, next_value_function,
+                                                    tolerance):
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updates = cycle_iterate_on_value_function_rp(actions, transitions, rewards,
-                                                                     base_value_function,
-                                                                     discount)
+                                                                              base_value_function,
+                                                                              discount)
             max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
             updates_per_iter.append(updates)
     else:
@@ -138,7 +143,8 @@ def cycle_iterate_on_value_function_rp(actions: MDPActions, transitions: MDPTran
 
 
 def random_k_iterate_on_value_function(actions: MDPActions, transitions: MDPTransitions, rewards: MDPRewards,
-                                       base_vf: Mapping[S, float], discount: float, k: int) -> Tuple[Mapping[S, float], float]:
+                                       base_vf: Mapping[S, float], discount: float, k: int) -> Tuple[
+    Mapping[S, float], float]:
     new_vf = {}
     states = list(actions.keys())
     states_to_update_idx = np.random.choice(range(len(states)), size=k)
