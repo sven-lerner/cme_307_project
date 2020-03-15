@@ -11,7 +11,7 @@ def extract_value_of_action(actions: MDPActions, transitions: MDPTransitions, re
                                                     transitions[state][action].items()])
 
 
-def check_value_fuction_equivalence(v1, v2, epsilon=1e-8) -> bool:
+def check_value_fuction_equivalence(v1, v2, epsilon=1e-4) -> bool:
     assert v1.keys() == v2.keys(), "comparing policies with different state spaces"
     for state in v1:
         if not abs(v1[state] - v2[state]) <= epsilon:
