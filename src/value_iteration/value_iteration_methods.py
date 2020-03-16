@@ -14,7 +14,7 @@ def record_convergence(record, max_diffs, gt_vf, new_vf):
 
 
 def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: MDPRewards,
-                    discount: float, vi_method: str = 'normal', k=None,
+                    discount: float, vi_method: str = 'normal', k=None, sample_action_size=None,
                     log_converence=False, gt_vf=None,
                     max_iter=1e4, tolerance=1e-4) -> Tuple[Mapping[S, float], int, list, list]:
     max_diffs = []
@@ -63,7 +63,8 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
                                                                                             rewards,
                                                                                             base_value_function,
                                                                                             discount,
-                                                                                            next_states_to_update)
+                                                                                            next_states_to_update,
+                                                                                            sample_action_size=sample_action_size)
             max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
             updates_per_iter.append(len(next_states_to_update))
             next_states_to_update = set()
@@ -161,12 +162,20 @@ def random_k_iterate_on_value_function(actions: MDPActions, transitions: MDPTran
 
 def iterate_on_value_function_specific_states(actions: MDPActions, transitions: MDPTransitions, rewards: MDPRewards,
                                               base_vf: Mapping[S, float], discount: float,
-                                              states_to_update: Set[S]) -> Mapping[S, float]:
+                                              states_to_update: Set[S], sample_action_size=None) -> Mapping[S, float]:
     new_vf = {}
     updated_states = set()
-    for s in states_to_update:
+    if sample_action_size != None:
+        num_s = len(states_to_update)
+        random_pool = np.random.choice(np.arange(8), size=num_s*sample_action_size).reshape(num_s, sample_action_size)
+    for i, s in enumerate(states_to_update):
+        sampled_actions = actions[s]
+        if sample_action_size != None and len(actions[s])>1:
+            #action_idx = np.random.choice(range(len(actions[s])), size=sample_action_size, replace=False)
+            action_idx = random_pool[i]
+            sampled_actions = [list(actions[s])[idx] for idx in action_idx]
         action_values = [(action, extract_value_of_action(actions, transitions, rewards,
-                                                          action, s, base_vf, discount)) for action in actions[s]]
+                                                          action, s, base_vf, discount)) for action in sampled_actions]
         best_action_reward = min([x[1] for x in action_values])
         new_vf[s] = best_action_reward
         if abs(new_vf[s] - base_vf[s]) > 1e-5:
