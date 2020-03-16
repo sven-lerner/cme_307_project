@@ -51,6 +51,7 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
     elif vi_method == 'influence-tree':
         influence_tree = get_influence_tree(transitions)
         next_states_to_update = set(actions.keys())
+        best_actions_by_state = {}
         if k is not None:
             next_states_to_update = list(next_states_to_update)
             next_sample_size = min(len(next_states_to_update), k)
@@ -64,7 +65,8 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
                                                                                             base_value_function,
                                                                                             discount,
                                                                                             next_states_to_update,
-                                                                                            sample_action_size=sample_action_size)
+                                                                                            sample_action_size=sample_action_size,
+                                                                                            best_actions_by_state=best_actions_by_state)
             max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
             updates_per_iter.append(len(next_states_to_update))
             next_states_to_update = set()
@@ -162,21 +164,25 @@ def random_k_iterate_on_value_function(actions: MDPActions, transitions: MDPTran
 
 def iterate_on_value_function_specific_states(actions: MDPActions, transitions: MDPTransitions, rewards: MDPRewards,
                                               base_vf: Mapping[S, float], discount: float,
-                                              states_to_update: Set[S], sample_action_size=None) -> Mapping[S, float]:
+                                              states_to_update: Set[S], sample_action_size=None,
+                                              best_actions_by_state: dict = {}) -> Mapping[S, float]:
     new_vf = {}
     updated_states = set()
     if sample_action_size != None:
         num_s = len(states_to_update)
-        random_pool = np.random.choice(np.arange(8), size=num_s*sample_action_size).reshape(num_s, sample_action_size)
+        random_pool = np.random.choice(np.arange(8), size=num_s * sample_action_size).reshape(num_s, sample_action_size)
     for i, s in enumerate(states_to_update):
         sampled_actions = actions[s]
-        if sample_action_size != None and len(actions[s])>1:
-            #action_idx = np.random.choice(range(len(actions[s])), size=sample_action_size, replace=False)
+        if sample_action_size != None and len(actions[s]) > 1:
+            # action_idx = np.random.choice(range(len(actions[s])), size=sample_action_size, replace=False)
             action_idx = random_pool[i]
             sampled_actions = [list(actions[s])[idx] for idx in action_idx]
+            if s in best_actions_by_state:
+                sampled_actions += [best_actions_by_state[s]]
         action_values = [(action, extract_value_of_action(actions, transitions, rewards,
                                                           action, s, base_vf, discount)) for action in sampled_actions]
-        best_action_reward = min([x[1] for x in action_values])
+        best_action_reward, best_action = min([(x[1], x[0]) for x in action_values])
+        best_actions_by_state[s] = best_action
         new_vf[s] = best_action_reward
         if abs(new_vf[s] - base_vf[s]) > 1e-5:
             updated_states.add(s)
