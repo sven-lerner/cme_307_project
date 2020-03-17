@@ -24,9 +24,9 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
     num_iter = 0
 
     if vi_method == 'normal':
-        while base_value_function is None or \
+        while num_iter < max_iter and (base_value_function is None or \
                 not check_value_fuction_equivalence(base_value_function, next_value_function,
-                                                    tolerance):
+                                                    tolerance)):
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updates = iterate_on_value_function(actions, transitions, rewards, base_value_function,
@@ -84,9 +84,9 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
                 next_states_to_update = [next_states_to_update[idx] for idx in states_to_update_idx]
 
     elif vi_method == 'cyclic-vi':
-        while base_value_function is None or \
+        while num_iter < max_iter and (base_value_function is None or \
                 not check_value_fuction_equivalence(base_value_function, next_value_function,
-                                                    tolerance):
+                                                    tolerance)):
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updates = cycle_iterate_on_value_function(actions, transitions, rewards,
@@ -95,9 +95,9 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
             max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
             updates_per_iter.append(updates)
     elif vi_method == 'cyclic-vi-rp':
-        while base_value_function is None or \
+        while num_iter < max_iter and (base_value_function is None or \
                 not check_value_fuction_equivalence(base_value_function, next_value_function,
-                                                    tolerance):
+                                                    tolerance)):
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updates = cycle_iterate_on_value_function_rp(actions, transitions, rewards,
