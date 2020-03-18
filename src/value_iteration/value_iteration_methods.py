@@ -24,9 +24,9 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
     num_iter = 0
 
     if vi_method == 'normal':
-        while base_value_function is None or \
+        while num_iter < max_iter and (base_value_function is None or \
                 not check_value_fuction_equivalence(base_value_function, next_value_function,
-                                                    tolerance):
+                                                    tolerance)):
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updates = iterate_on_value_function(actions, transitions, rewards, base_value_function,
@@ -55,9 +55,10 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
         if k is not None:
             next_states_to_update = list(next_states_to_update)
             next_sample_size = min(len(next_states_to_update), k)
-            states_to_update_idx = np.random.choice(range(len(next_states_to_update)), size=next_sample_size)
+            states_to_update_idx = np.random.choice(range(len(next_states_to_update)), size=next_sample_size,
+                                                    replace=False)
             next_states_to_update = [next_states_to_update[idx] for idx in states_to_update_idx]
-        while num_iter < max_iter and len(next_states_to_update) > 0:
+        while num_iter < max_iter and len(next_states_to_update) > 0 and (len(max_diffs) == 0 or max_diffs[-1] > tolerance):
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updated_states = iterate_on_value_function_specific_states(actions, transitions,
@@ -79,14 +80,22 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
                     next_states_to_update = list(actions.keys())
                 else:
                     next_states_to_update = list(next_states_to_update)
+                    if len(next_states_to_update) < k:
+                        states = list(actions.keys())
+                        extra_states_inds = np.random.choice(range(len(states)),
+                                                                size=k-len(next_states_to_update),
+                                                             replace=False)
+                        next_states_to_update += [states[ind] for ind in extra_states_inds]
+
                 next_sample_size = min(len(next_states_to_update), k)
-                states_to_update_idx = np.random.choice(range(len(next_states_to_update)), size=next_sample_size)
+                states_to_update_idx = np.random.choice(range(len(next_states_to_update)), size=next_sample_size,
+                                                        replace=False)
                 next_states_to_update = [next_states_to_update[idx] for idx in states_to_update_idx]
 
     elif vi_method == 'cyclic-vi':
-        while base_value_function is None or \
+        while num_iter < max_iter and (base_value_function is None or \
                 not check_value_fuction_equivalence(base_value_function, next_value_function,
-                                                    tolerance):
+                                                    tolerance)):
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updates = cycle_iterate_on_value_function(actions, transitions, rewards,
@@ -95,9 +104,9 @@ def value_iteration(actions: MDPActions, transitions: MDPTransitions, rewards: M
             max_diffs = record_convergence(log_converence, max_diffs, gt_vf, next_value_function)
             updates_per_iter.append(updates)
     elif vi_method == 'cyclic-vi-rp':
-        while base_value_function is None or \
+        while num_iter < max_iter and (base_value_function is None or \
                 not check_value_fuction_equivalence(base_value_function, next_value_function,
-                                                    tolerance):
+                                                    tolerance)):
             num_iter += 1
             base_value_function = next_value_function
             next_value_function, updates = cycle_iterate_on_value_function_rp(actions, transitions, rewards,
@@ -150,7 +159,7 @@ def random_k_iterate_on_value_function(actions: MDPActions, transitions: MDPTran
     Mapping[S, float], float]:
     new_vf = {}
     states = list(actions.keys())
-    states_to_update_idx = np.random.choice(range(len(states)), size=k)
+    states_to_update_idx = np.random.choice(range(len(states)), size=k, replace=False)
     states_to_update = [states[idx] for idx in states_to_update_idx]
     for s in states_to_update:
         action_values = [(action, extract_value_of_action(actions, transitions, rewards,
